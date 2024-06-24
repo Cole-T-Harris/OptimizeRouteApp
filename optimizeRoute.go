@@ -2,10 +2,12 @@ package main
 
 import (
     "bytes"
+	"context"
     "encoding/json"
     "fmt"
     "time"
     "net/http"
+	"github.com/aws/aws-lambda-go/lambda"
 )
 
 type LatLng struct {
@@ -39,7 +41,12 @@ type RouteRequest struct {
     Units                   string            `json:"units"`
 }
 
-func main() {
+type Response struct {
+    Message string                 `json:"message"`
+    Data    map[string]interface{} `json:"data"`
+}
+
+func HandleRequest(ctx context.Context) (Response, error) {
     departureTime := time.Now().Add(1 * time.Minute)
 
     request := RouteRequest{
@@ -76,7 +83,7 @@ func main() {
     jsonData, err := json.MarshalIndent(request, "", "  ")
     if err != nil {
         fmt.Println("Error marshaling JSON:", err)
-        return
+        return Response{Message: "Error marshaling JSON", Data: nil}, err
     }
 
     apiKey := "YOUR_API_KEY_HERE"
@@ -84,7 +91,7 @@ func main() {
     req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
     if err != nil {
         fmt.Println("Error creating request:", err)
-        return
+        return Response{Message: "Error creating request", Data: nil}, err
     }
 
     // Set headers
@@ -97,7 +104,7 @@ func main() {
     resp, err := client.Do(req)
     if err != nil {
         fmt.Println("Error sending request:", err)
-        return
+        return Response{Message: "Error sending request", Data: nil}, err
     }
     defer resp.Body.Close()
 
@@ -105,8 +112,12 @@ func main() {
     var result map[string]interface{}
     if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
         fmt.Println("Error decoding response:", err)
-        return
+        return Response{Message: "Error decoding response", Data: nil}, err
     }
 
-    fmt.Printf("Response: %+v\n", result)
+    return Response{Message: "Request successful", Data: result}, nil
+}
+
+func main() {
+    lambda.Start(HandleRequest)
 }
