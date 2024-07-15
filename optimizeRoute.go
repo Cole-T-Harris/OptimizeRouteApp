@@ -5,8 +5,9 @@ import (
 	"context"
     "encoding/json"
     "fmt"
-    "time"
     "net/http"
+    "os"
+    "time"
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
@@ -41,28 +42,42 @@ type RouteRequest struct {
     Units                   string            `json:"units"`
 }
 
+type Request struct {
+	Origin      LatLng `json:"origin"`
+	Destination LatLng `json:"destination"`
+}
+
 type Response struct {
     Message string                 `json:"message"`
     Data    map[string]interface{} `json:"data"`
 }
 
-func HandleRequest(ctx context.Context) (Response, error) {
-    departureTime := time.Now().Add(1 * time.Minute)
+func HandleRequest(ctx context.Context, request Request) (Response, error) {
+    if request.Origin.Latitude == 0 || request.Origin.Longitude == 0 ||
+        request.Destination.Latitude == 0 || request.Destination.Longitude == 0 {
+        return Response{Message: "Invalid request. Missing origin or destination coordinates."}, nil
+    }
 
-    request := RouteRequest{
+    departureTime := time.Now().Add(1 * time.Minute)
+    originLat := request.Origin.Latitude
+	originLng := request.Origin.Longitude
+	destLat := request.Destination.Latitude
+	destLng := request.Destination.Longitude
+
+    googleRequest := RouteRequest{
         Origin: OriginDestination{
             Location: Location{
                 LatLng: LatLng{
-                    Latitude:  40.37619,
-                    Longitude: -105.52351,
+                    Latitude:  originLat,
+                    Longitude: originLng,
                 },
             },
         },
         Destination: OriginDestination{
             Location: Location{
                 LatLng: LatLng{
-                    Latitude:  40.36646,
-                    Longitude: -105.58111,
+                    Latitude:  destLat,
+                    Longitude: destLng,
                 },
             },
         },
@@ -80,13 +95,13 @@ func HandleRequest(ctx context.Context) (Response, error) {
     }
 
     // Marshal the struct to JSON
-    jsonData, err := json.MarshalIndent(request, "", "  ")
+    jsonData, err := json.MarshalIndent(googleRequest, "", "  ")
     if err != nil {
         fmt.Println("Error marshaling JSON:", err)
         return Response{Message: "Error marshaling JSON", Data: nil}, err
     }
 
-    apiKey := "YOUR_API_KEY_HERE"
+    apiKey := os.Getenv("GOOGLE_API_KEY")
     url := "https://routes.googleapis.com/directions/v2:computeRoutes"
     req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
     if err != nil {
