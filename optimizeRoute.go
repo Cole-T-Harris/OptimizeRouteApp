@@ -7,14 +7,16 @@ import (
     "fmt"
     "net/http"
     "os"
+    "strconv"
+	"strings"
     "time"
 	"github.com/aws/aws-lambda-go/lambda"
-    // "github.com/supabase-community/postgrest-go"
+    "github.com/supabase-community/supabase-go"
 )
 
 type LatLng struct {
-    Latitude  float64 `json:"latitude"`
-    Longitude float64 `json:"longitude"`
+    Latitude  *float64 `json:"latitude"`
+    Longitude *float64 `json:"longitude"`
 }
 
 type Location struct {
@@ -44,8 +46,10 @@ type RouteRequest struct {
 }
 
 type Request struct {
+    UserID      *int    `json:"user_id"`
 	Origin      LatLng `json:"origin"`
 	Destination LatLng `json:"destination"`
+    Route       *int   `json:"route"`
 }
 
 type Response struct {
@@ -67,13 +71,35 @@ type Polyline struct {
 	EncodedPolyline string `json:"encodedPolyline"`
 }
 
-// var supabaseURL = os.Getenv("SUPABASE_URL")
-// var supabaseKey = os.Getenv("SUPABASE_KEY")
+type QueryRecord struct {
+	UserID    int       `json:"user_id"`
+	QueryTime time.Time `json:"query_time"`
+	Duration  int       `json:"duration"`
+    Distance  int       `json:"distance"`
+	Route     int       `json:"route"`
+	RouteHash string    `json:"route_hash"`
+}
+
+var supabaseURL = os.Getenv("SUPABASE_URL")
+var supabaseKey = os.Getenv("SUPABASE_KEY")
 
 func HandleRequest(ctx context.Context, request Request) (Response, error) {
-    if request.Origin.Latitude == 0 || request.Origin.Longitude == 0 ||
-        request.Destination.Latitude == 0 || request.Destination.Longitude == 0 {
+    if request.UserID == nil {
+		return Response{}, fmt.Errorf("invalid request. Missing user ID")
+	}
+
+    if request.Route == nil {
+		return Response{}, fmt.Errorf("invalid request. Missing route ID")
+	}
+
+    if request.Origin.Latitude == nil || request.Origin.Longitude == nil ||
+        request.Destination.Latitude == nil || request.Destination.Longitude == nil {
         return Response{}, fmt.Errorf("invalid request. Missing origin or destination coordinates")
+    }
+
+    databaseClient, err := supabase.NewClient(supabaseURL, supabaseKey, nil)
+    if err != nil {
+      fmt.Println("cannot initalize client", err)
     }
 
     departureTime := time.Now().Add(1 * time.Minute)
@@ -155,30 +181,38 @@ func HandleRequest(ctx context.Context, request Request) (Response, error) {
 		duration := responseData.Routes[0].Duration
 		encodedPolyline := responseData.Routes[0].Polyline.EncodedPolyline
 
-		// Print the extracted values
-		fmt.Printf("Distance Meters: %d\n", distanceMeters)
-		fmt.Printf("Duration: %s\n", duration)
-		fmt.Printf("Encoded Polyline: %s\n", encodedPolyline)
+        numericPart := strings.TrimSuffix(duration, "s")
+        durationInt, err := strconv.Atoi(numericPart)
+        if err != nil {
+            fmt.Println("Error:", err)
+            return Response{}, fmt.Errorf("error converting duration: %v", err)
+        }
+
+        record := QueryRecord{
+            UserID: *request.UserID,
+            QueryTime: departureTime,
+            Duration: durationInt,
+            Distance: distanceMeters,
+            Route: *request.Route,
+            RouteHash: encodedPolyline,
+        }
+        upsert := false //Update if there is data with the same key
+
+        response, rowsEffected, err := databaseClient.From("commutes").Insert(record, upsert, "", "*", "exact").Execute()
+        if err != nil {
+            fmt.Printf("Failed to insert data: %v", err)
+            return Response{}, fmt.Errorf("failed to insert data: %v", err)
+        }
+    
+        if rowsEffected != 1 {
+            fmt.Printf("Incorrect of rows effected, rows effected: %d", rowsEffected)
+            return Response{}, fmt.Errorf("incorrect of rows effected, rows effected: %d", rowsEffected)
+        }
+        fmt.Println("Query Succesful:", response)
 	} else {
 		fmt.Println("No routes found in the response")
         return Response{Message: "No routes found in the response", Data: responseData}, nil
 	}
-
-    //  // Insert data into Supabase
-    //  databaseClient := postgrest.NewClient(supabaseURL, supabaseKey, nil)
-    //  data := LatLng{
-    //      Latitude:  apiResponse.Latitude,
-    //      Longitude: apiResponse.Longitude,
-    //  }
- 
-    //  response, err := databaseClient.From("your_table_name").Insert(data, false, "", "").Execute()
-    //  if err != nil {
-    //      return fmt.Errorf("error inserting data into Supabase: %v", err)
-    //  }
- 
-    //  if response.StatusCode != http.StatusCreated {
-    //      return fmt.Errorf("unexpected Supabase response status: %s", response.Status)
-    //  }
 
     return Response{Message: "Request successful", Data: responseData}, nil
 }
