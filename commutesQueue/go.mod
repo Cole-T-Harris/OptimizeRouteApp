@@ -2,7 +2,10 @@ module github.com/Cole-T-Harris/OptimizeRouteApp
 
 go 1.22.5
 
-require github.com/supabase-community/supabase-go v0.0.4
+require (
+	github.com/aws/aws-lambda-go v1.47.0
+	github.com/supabase-community/supabase-go v0.0.4
+)
 
 require (
 	github.com/google/uuid v1.6.0 // indirect
