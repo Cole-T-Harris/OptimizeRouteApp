@@ -17,13 +17,16 @@ build: $(ZIP_NAMES)
 # Build the Go function and create a zip file
 $(BUILD_DIR)/%.zip: %
 	@echo "Building $*..."
-	(cd $* && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o $* main.go)
+	(cd $* && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o bootstrap main.go)
 	@echo "Setting executable permissions for $*..."
-	@chmod +x $*/$*
+	@chmod +x $*/bootstrap
+	@echo "Create $* Build Directory"
+	@mkdir $(BUILD_DIR)/$*
 	@echo "Moving binary to $(BUILD_DIR)/$*..."
-	@mv $*/$* $(BUILD_DIR)/$*
+	@mv $*/bootstrap $(BUILD_DIR)/$*/bootstrap
+	@cd $(BUILD_DIR)/$* && pwd
 	@echo "Packaging $(BUILD_DIR)/$*.zip..."
-	@cd $(BUILD_DIR) && zip -r $*.zip $*
+	@cd $(BUILD_DIR)/$* && zip $*.zip bootstrap
 
 # Run tests for all functions
 # test:

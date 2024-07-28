@@ -39,7 +39,7 @@ Resources:
     Properties:
       Handler: optimizeRoute
       Runtime: go1.x
-      CodeUri: ./dist/optimizeRoute.zip
+      CodeUri: ./dist/optimizeRoute/optimizeRoute.zip
       Timeout: 10  
       MemorySize: 128
       Description: 'A Lambda function to calculate the commute distance and time'  
@@ -54,7 +54,7 @@ Resources:
     Properties:
       Handler: commutesQueue
       Runtime: go1.x
-      CodeUri: ./dist/commutesQueue.zip
+      CodeUri: ./dist/commutesQueue/commutesQueue.zip
       Timeout: 10  
       MemorySize: 128
       Description: 'A Lambda function to find the routes to send API requests'  
