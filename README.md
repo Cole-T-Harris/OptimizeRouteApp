@@ -4,7 +4,7 @@
 
 Build binary and zip
 ```
-./build.sh
+make all
 ```
 
 Testing in Local For the OptimizeRouteFunction:
