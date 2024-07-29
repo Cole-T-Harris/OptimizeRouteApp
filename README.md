@@ -38,7 +38,7 @@ Resources:
     Type: 'AWS::Serverless::Function'
     Properties:
       Handler: optimizeRoute
-      Runtime: go1.x
+      Runtime: provided.al2023
       CodeUri: ./dist/optimizeRoute/optimizeRoute.zip
       Timeout: 10  
       MemorySize: 128
@@ -53,7 +53,7 @@ Resources:
     Type: 'AWS::Serverless::Function'
     Properties:
       Handler: commutesQueue
-      Runtime: go1.x
+      Runtime: provided.al2023
       CodeUri: ./dist/commutesQueue/commutesQueue.zip
       Timeout: 10  
       MemorySize: 128
@@ -62,4 +62,5 @@ Resources:
         Variables:
           SUPABASE_URL: "YOUR_DATABASE_URL"
           SUPABASE_KEY: "YOUR_DATABASE_SECRET"
+          OPTIMIZE_ROUTE_FUNCTION: "YOUR_OPTIMIZE_ROUTE_FUNCTION_ARN"
 ```
