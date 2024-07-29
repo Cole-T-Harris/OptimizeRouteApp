@@ -20,3 +20,10 @@
 template.yaml
 event.json
 *.zip
+testRequests/
+
+#terraform
+*.tfvars
+terraform.tfstate.backup
+.terraform
+terraform.tfstate
