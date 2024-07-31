@@ -11,6 +11,7 @@ import (
 	"github.com/supabase-community/supabase-go"
 	"os"
 	"strconv"
+	"sync"
 )
 
 type Request struct {
@@ -54,16 +55,67 @@ type OptimizeRouteRequest struct {
 var supabaseURL = os.Getenv("SUPABASE_URL")
 var supabaseKey = os.Getenv("SUPABASE_KEY")
 
+func processRoute(route Route, svc *awslambda.Lambda, resultChan chan<- string, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	floatStartLatitude, err := strconv.ParseFloat(route.StartLatitude, 64)
+	if err != nil {
+		resultChan <- fmt.Sprintf("Error converting starting latitude to float: %v", err)
+		return
+	}
+	floatStartLongitude, err := strconv.ParseFloat(route.StartLongitude, 64)
+	if err != nil {
+		resultChan <- fmt.Sprintf("Error converting starting longitude to float: %v", err)
+		return
+	}
+	floatDestinationLatitude, err := strconv.ParseFloat(route.StopLatitude, 64)
+	if err != nil {
+		resultChan <- fmt.Sprintf("Error converting destination latitude to float: %v", err)
+		return
+	}
+	floatDestinationLongitude, err := strconv.ParseFloat(route.StopLongitude, 64)
+	if err != nil {
+		resultChan <- fmt.Sprintf("Error converting destination longitude to float: %v", err)
+		return
+	}
+	routeRequest := OptimizeRouteRequest{
+		UserID: route.UserID,
+		Route:  route.ID,
+		Origin: Location{
+			Latitude:  floatStartLatitude,
+			Longitude: floatStartLongitude,
+		},
+		Destination: Location{
+			Latitude:  floatDestinationLatitude,
+			Longitude: floatDestinationLongitude,
+		},
+	}
+	requestData, err := json.Marshal(routeRequest)
+	if err != nil {
+		resultChan <- fmt.Sprintf("Error marshaling optimize route request struct: %v", err)
+		return
+	}
+
+	input := &awslambda.InvokeInput{
+		FunctionName: aws.String(os.Getenv("OPTIMIZE_ROUTE_FUNCTION")),
+		Payload:      requestData,
+	}
+	result, err := svc.Invoke(input)
+	if err != nil {
+		resultChan <- fmt.Sprintf("Failed to invoke target function: %v", err)
+		return
+	}
+
+	resultChan <- fmt.Sprintf("Successful commutes request: %v", result)
+}
+
 func HandleRequest(ctx context.Context, request Request) (Response, error) {
 	sess := session.Must(session.NewSession(&aws.Config{
 		Region: aws.String("us-east-1"),
 	}))
 
 	svc := awslambda.New(sess)
-	input := &awslambda.InvokeInput{
-		FunctionName: aws.String(os.Getenv("OPTIMIZE_ROUTE_FUNCTION")),
-		Payload:      []byte(`{}`),
-	}
+
 	databaseClient, err := supabase.NewClient(supabaseURL, supabaseKey, nil)
 	if err != nil {
 		fmt.Println("cannot initalize database client", err)
@@ -86,61 +138,32 @@ func HandleRequest(ctx context.Context, request Request) (Response, error) {
 		fmt.Printf("Error unmarshalling response: %v", err)
 		return Response{}, fmt.Errorf("error unmarshalling response: %v", err)
 	}
-	suceeded := 0
+	var wg sync.WaitGroup
+	resultChan := make(chan string, len(routes))
+	succeeded := 0
 	failed := 0
-	totalProcessed := len(routes)
+
 	for _, route := range routes {
-		floatStartLatitude, err := strconv.ParseFloat(route.StartLatitude, 64)
-		if err != nil {
-			fmt.Printf("Error converting starting latitude to float: %v", err)
-			return Response{}, fmt.Errorf("error converting starting latitude to float: %v", err)
-		}
-		floatStartLongitude, err := strconv.ParseFloat(route.StartLongitude, 64)
-		if err != nil {
-			fmt.Printf("Error converting starting longitude to float: %v", err)
-			return Response{}, fmt.Errorf("error converting starting longitude to float: %v", err)
-		}
-		floatDestinationLatitude, err := strconv.ParseFloat(route.StopLatitude, 64)
-		if err != nil {
-			fmt.Printf("Error converting destination latitude to float: %v", err)
-			return Response{}, fmt.Errorf("error converting destination latitude to float: %v", err)
-		}
-		floatDestinationLongitude, err := strconv.ParseFloat(route.StopLongitude, 64)
-		if err != nil {
-			fmt.Printf("Error converting destination longitude to float: %v", err)
-			return Response{}, fmt.Errorf("error converting destination longitude to float: %v", err)
-		}
-		routeRequest := OptimizeRouteRequest{
-			UserID: route.UserID,
-			Route:  route.ID,
-			Origin: Location{
-				Latitude:  floatStartLatitude,
-				Longitude: floatStartLongitude,
-			},
-			Destination: Location{
-				Latitude:  floatDestinationLatitude,
-				Longitude: floatDestinationLongitude,
-			},
-		}
-		requestData, err := json.Marshal(routeRequest)
-		if err != nil {
-			fmt.Println("Error marshaling optimize route request struct:", err)
-			return Response{}, fmt.Errorf("error marshaling optimize route request struct: %v", err)
-		}
-		input.Payload = requestData
-		result, err := svc.Invoke(input)
-		if err != nil {
-			fmt.Printf("failed to invoke target function: %v", err)
+		wg.Add(1)
+		go processRoute(route, svc, resultChan, &wg)
+	}
+
+	wg.Wait()
+	close(resultChan)
+
+	for result := range resultChan {
+		if result[:5] == "Error" {
+			fmt.Println(result)
 			failed++
 		} else {
-			fmt.Println("Succesful commutes request: ", result)
-			suceeded++
+			fmt.Println(result)
+			succeeded++
 		}
-
 	}
+
 	lambdaResponse := Data{
-		Processed: totalProcessed,
-		Suceeded:  suceeded,
+		Processed: len(routes),
+		Suceeded:  succeeded,
 		Failed:    failed,
 	}
 	return Response{"Commutes Requests Complete.", lambdaResponse}, nil

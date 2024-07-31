@@ -4,24 +4,24 @@ BUILD_DIR := dist
 BINARY_NAMES := $(FUNCTIONS_DIRS)
 ZIP_NAMES := $(addprefix $(BUILD_DIR)/, $(addsuffix .zip, $(BINARY_NAMES)))
 
+# Default target
+all: $(BUILD_DIR) build
+
 # Create the build directory
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
-
-# Default target
-all: $(BUILD_DIR) build
 
 # Build and package each Go Lambda function
 build: $(ZIP_NAMES)
 
 # Build the Go function and create a zip file
-$(BUILD_DIR)/%.zip: %
+$(BUILD_DIR)/%.zip: %/main.go
 	@echo "Building $*..."
 	(cd $* && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o bootstrap main.go)
 	@echo "Setting executable permissions for $*..."
 	@chmod +x $*/bootstrap
 	@echo "Create $* Build Directory"
-	@mkdir $(BUILD_DIR)/$*
+	@mkdir -p $(BUILD_DIR)/$*
 	@echo "Moving binary to $(BUILD_DIR)/$*..."
 	@mv $*/bootstrap $(BUILD_DIR)/$*/bootstrap
 	@cd $(BUILD_DIR)/$* && pwd
