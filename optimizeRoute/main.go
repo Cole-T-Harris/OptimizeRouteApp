@@ -46,10 +46,12 @@ type RouteRequest struct {
 }
 
 type Request struct {
-	UserID      *int   `json:"user_id"`
-	Origin      LatLng `json:"origin"`
-	Destination LatLng `json:"destination"`
-	Route       *int   `json:"route"`
+	UserID      *int    `json:"user_id"`
+	Origin      LatLng  `json:"origin"`
+	Destination LatLng  `json:"destination"`
+	Route       *int    `json:"route"`
+	ToWork      *bool   `json:"to_work"`
+	Timezone    *string `json:"timezone"`
 }
 
 type Response struct {
@@ -78,6 +80,8 @@ type QueryRecord struct {
 	Distance  int       `json:"distance"`
 	Route     int       `json:"route"`
 	RouteHash string    `json:"route_hash"`
+	ToWork    bool      `json:"to_work"`
+	DayOfWeek string    `json:"day_of_week"`
 }
 
 var supabaseURL = os.Getenv("SUPABASE_URL")
@@ -87,9 +91,14 @@ func HandleRequest(ctx context.Context, request Request) (Response, error) {
 	if request.UserID == nil {
 		return Response{}, fmt.Errorf("invalid request. Missing user ID")
 	}
-
+	if request.ToWork == nil {
+		return Response{}, fmt.Errorf("invalid request. Missing to_work")
+	}
 	if request.Route == nil {
 		return Response{}, fmt.Errorf("invalid request. Missing route ID")
+	}
+	if request.Timezone == nil {
+		return Response{}, fmt.Errorf("invalid request. Missing timezone")
 	}
 
 	if request.Origin.Latitude == nil || request.Origin.Longitude == nil ||
@@ -101,8 +110,12 @@ func HandleRequest(ctx context.Context, request Request) (Response, error) {
 	if err != nil {
 		fmt.Println("cannot initalize client", err)
 	}
-
-	departureTime := time.Now().Add(1 * time.Minute)
+	loc, err := time.LoadLocation(*request.Timezone)
+	if err != nil {
+		fmt.Println("Error loading location:", err)
+		return Response{}, fmt.Errorf("error laoding location: %v", err)
+	}
+	departureTime := time.Now().UTC().In(loc).Add(1 * time.Minute)
 	originLat := request.Origin.Latitude
 	originLng := request.Origin.Longitude
 	destLat := request.Destination.Latitude
@@ -195,6 +208,8 @@ func HandleRequest(ctx context.Context, request Request) (Response, error) {
 			Distance:  distanceMeters,
 			Route:     *request.Route,
 			RouteHash: encodedPolyline,
+			ToWork:    *request.ToWork,
+			DayOfWeek: departureTime.Weekday().String(),
 		}
 		upsert := false //Update if there is data with the same key
 
