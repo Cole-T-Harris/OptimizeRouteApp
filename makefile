@@ -24,9 +24,11 @@ $(BUILD_DIR)/%.zip: %/main.go
 	@mkdir -p $(BUILD_DIR)/$*
 	@echo "Moving binary to $(BUILD_DIR)/$*..."
 	@mv $*/bootstrap $(BUILD_DIR)/$*/bootstrap
+	@echo "Moving SQL files to $(BUILD_DIR)/$*..."
+	@find $* -name "*.sql" -exec cp {} $(BUILD_DIR)/$* \;
 	@cd $(BUILD_DIR)/$* && pwd
 	@echo "Packaging $(BUILD_DIR)/$*.zip..."
-	@cd $(BUILD_DIR)/$* && zip $*.zip bootstrap
+	@cd $(BUILD_DIR)/$* && zip $*.zip bootstrap *.sql
 
 # Run tests for all functions
 # test:

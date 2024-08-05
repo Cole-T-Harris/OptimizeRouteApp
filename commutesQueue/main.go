@@ -2,13 +2,14 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	awslambda "github.com/aws/aws-sdk-go/service/lambda"
-	"github.com/supabase-community/supabase-go"
+	_ "github.com/lib/pq"
 	"os"
 	"strconv"
 	"sync"
@@ -32,12 +33,12 @@ type Route struct {
 	ID             int    `json:"id"`
 	UserID         int    `json:"user_id"`
 	Active         bool   `json:"active"`
-	StartAddress   string `json:"start_address"`
-	EndAddress     string `json:"end_address"`
 	StartLatitude  string `json:"start_latitude"`
 	StartLongitude string `json:"start_longitude"`
 	StopLatitude   string `json:"end_latitude"`
 	StopLongitude  string `json:"end_longitude"`
+	Timezone       string `json:"time_zone"`
+	ToWork         bool `json:"to_work"`
 }
 
 type Location struct {
@@ -48,12 +49,18 @@ type Location struct {
 type OptimizeRouteRequest struct {
 	UserID      int      `json:"user_id"`
 	Route       int      `json:"route"`
+	ToWork      bool     `json:"to_work"`
+	Timezone    string   `json:"timezone"`
 	Origin      Location `json:"origin"`
 	Destination Location `json:"destination"`
 }
 
-var supabaseURL = os.Getenv("SUPABASE_URL")
-var supabaseKey = os.Getenv("SUPABASE_KEY")
+var supabaseUsername = os.Getenv("SUPABASE_USERNAME")
+var supabasePassword = os.Getenv("SUPABASE_PASSWORD")
+var supabaseHost = os.Getenv("SUPABASE_HOST")
+var supabasePort = os.Getenv("SUPABASE_PORT")
+var supabaseDatabase = os.Getenv("SUPABASE_DATABASE")
+var toWorkQueryFilePath = "to_work_valid_rows.sql"
 
 func processRoute(route Route, svc *awslambda.Lambda, resultChan chan<- string, wg *sync.WaitGroup) {
 	defer wg.Done()
@@ -81,6 +88,8 @@ func processRoute(route Route, svc *awslambda.Lambda, resultChan chan<- string, 
 	routeRequest := OptimizeRouteRequest{
 		UserID: route.UserID,
 		Route:  route.ID,
+		ToWork: route.ToWork,
+		Timezone: route.Timezone,
 		Origin: Location{
 			Latitude:  floatStartLatitude,
 			Longitude: floatStartLongitude,
@@ -109,6 +118,14 @@ func processRoute(route Route, svc *awslambda.Lambda, resultChan chan<- string, 
 	resultChan <- fmt.Sprintf("Successful commutes request: %v", result)
 }
 
+func loadQuery(filename string) (string, error) {
+	query, err := os.ReadFile(filename)
+	if err != nil {
+		return "", err
+	}
+	return string(query), nil
+}
+
 func HandleRequest(ctx context.Context, request Request) (Response, error) {
 	sess := session.Must(session.NewSession(&aws.Config{
 		Region: aws.String("us-east-1"),
@@ -116,28 +133,62 @@ func HandleRequest(ctx context.Context, request Request) (Response, error) {
 
 	svc := awslambda.New(sess)
 
-	databaseClient, err := supabase.NewClient(supabaseURL, supabaseKey, nil)
+	toWorkQuery, err := loadQuery(toWorkQueryFilePath)
+	if err != nil {
+		fmt.Printf("Failed to load query: %v", err)
+		return Response{}, fmt.Errorf("failed to load query: %v", err)
+	}
+
+	connStr := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", supabaseUsername, supabasePassword,
+		supabaseHost, supabasePort, supabaseDatabase)
+
+	databaseClient, err := sql.Open("postgres", connStr)
 	if err != nil {
 		fmt.Println("cannot initalize database client", err)
 		return Response{}, fmt.Errorf("cannot initalize database client: %v", err)
 	}
-	response, rowsReturned, err := databaseClient.From("routes").Select("*", "exact", false).Eq("active", "true").Execute()
+	defer databaseClient.Close()
+
+	err = databaseClient.Ping()
+	if err != nil {
+		fmt.Printf("Failed to ping the database: %v", err)
+		return Response{}, fmt.Errorf("failed to ping the database: %v", err)
+	}
+
+	rows, err := databaseClient.Query(toWorkQuery)
 	if err != nil {
 		fmt.Printf("Failed to query data: %v", err)
 		return Response{}, fmt.Errorf("failed to query data: %v", err)
 	}
 
-	if rowsReturned <= 0 {
-		fmt.Printf("No rows returned: %d", rowsReturned)
-		return Response{}, fmt.Errorf("no rows returned: %d", rowsReturned)
+	var routes []Route
+	for rows.Next() {
+		var route Route
+		if err := rows.Scan(
+			&route.ID,
+			&route.Active,
+			&route.UserID,
+			&route.StartLatitude,
+			&route.StartLongitude,
+			&route.StopLatitude,
+			&route.StopLongitude,
+			&route.Timezone); err != nil {
+			fmt.Printf("Error scanning row: %v", err)
+		}
+		route.ToWork = true
+		fmt.Println(route.Timezone)
+		routes = append(routes, route)
+	}
+	if err := rows.Err(); err != nil {
+		fmt.Printf("Error iterating rows: %v", err)
+		return Response{}, fmt.Errorf("error iterating rows: %v", err)
 	}
 
-	var routes []Route
-	err = json.Unmarshal(response, &routes)
-	if err != nil {
-		fmt.Printf("Error unmarshalling response: %v", err)
-		return Response{}, fmt.Errorf("error unmarshalling response: %v", err)
+	if len(routes) <= 0 {
+		fmt.Printf("No rows returned: %d", len(routes))
+		return Response{}, fmt.Errorf("no rows returned: %d", len(routes))
 	}
+
 	var wg sync.WaitGroup
 	resultChan := make(chan string, len(routes))
 	succeeded := 0
