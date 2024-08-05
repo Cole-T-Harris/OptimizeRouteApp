@@ -17,6 +17,8 @@ Example event.json
 {
   "user_id": 1,
   "route": 1,
+  "to_work": true,
+  "timezone": "US/Mountain",
   "origin": {
     "latitude": START_LATITUDE,
     "longitude": START_LONGITUDE
