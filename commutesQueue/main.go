@@ -38,7 +38,7 @@ type Route struct {
 	StopLatitude   string `json:"end_latitude"`
 	StopLongitude  string `json:"end_longitude"`
 	Timezone       string `json:"time_zone"`
-	ToWork         bool `json:"to_work"`
+	ToWork         bool   `json:"to_work"`
 }
 
 type Location struct {
@@ -61,6 +61,7 @@ var supabaseHost = os.Getenv("SUPABASE_HOST")
 var supabasePort = os.Getenv("SUPABASE_PORT")
 var supabaseDatabase = os.Getenv("SUPABASE_DATABASE")
 var toWorkQueryFilePath = "to_work_valid_rows.sql"
+var fromWorkQueryFilePath = "from_work_valid_rows.sql"
 
 func processRoute(route Route, svc *awslambda.Lambda, resultChan chan<- string, wg *sync.WaitGroup) {
 	defer wg.Done()
@@ -86,9 +87,9 @@ func processRoute(route Route, svc *awslambda.Lambda, resultChan chan<- string, 
 		return
 	}
 	routeRequest := OptimizeRouteRequest{
-		UserID: route.UserID,
-		Route:  route.ID,
-		ToWork: route.ToWork,
+		UserID:   route.UserID,
+		Route:    route.ID,
+		ToWork:   route.ToWork,
 		Timezone: route.Timezone,
 		Origin: Location{
 			Latitude:  floatStartLatitude,
@@ -118,6 +119,39 @@ func processRoute(route Route, svc *awslambda.Lambda, resultChan chan<- string, 
 	resultChan <- fmt.Sprintf("Successful commutes request: %v", result)
 }
 
+func fetchRoutes(query string, toWork bool, db *sql.DB, wg *sync.WaitGroup, results chan<- Route, errors chan<- error) {
+	defer wg.Done()
+
+	rows, err := db.Query(query)
+	if err != nil {
+		errors <- fmt.Errorf("failed to query data: %w", err)
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var route Route
+		if err := rows.Scan(
+			&route.ID,
+			&route.UserID,
+			&route.Active,
+			&route.StartLatitude,
+			&route.StartLongitude,
+			&route.StopLatitude,
+			&route.StopLongitude,
+			&route.Timezone); err != nil {
+			errors <- fmt.Errorf("error scanning row: %w", err)
+			continue
+		}
+		route.ToWork = toWork
+		results <- route
+	}
+
+	if err := rows.Err(); err != nil {
+		errors <- fmt.Errorf("error iterating over rows: %w", err)
+	}
+}
+
 func loadQuery(filename string) (string, error) {
 	query, err := os.ReadFile(filename)
 	if err != nil {
@@ -135,8 +169,13 @@ func HandleRequest(ctx context.Context, request Request) (Response, error) {
 
 	toWorkQuery, err := loadQuery(toWorkQueryFilePath)
 	if err != nil {
-		fmt.Printf("Failed to load query: %v", err)
-		return Response{}, fmt.Errorf("failed to load query: %v", err)
+		fmt.Printf("Failed to load query: %v, at filepath: %v", err, toWorkQueryFilePath)
+		return Response{}, fmt.Errorf("failed to load query: %v, at filepath: %v", err, toWorkQueryFilePath)
+	}
+	fromWorkQuery, err := loadQuery(fromWorkQueryFilePath)
+	if err != nil {
+		fmt.Printf("Failed to load query: %v, at filepath: %v", err, toWorkQueryFilePath)
+		return Response{}, fmt.Errorf("failed to load query: %v, at filepath: %v", err, toWorkQueryFilePath)
 	}
 
 	connStr := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", supabaseUsername, supabasePassword,
@@ -155,33 +194,39 @@ func HandleRequest(ctx context.Context, request Request) (Response, error) {
 		return Response{}, fmt.Errorf("failed to ping the database: %v", err)
 	}
 
-	rows, err := databaseClient.Query(toWorkQuery)
-	if err != nil {
-		fmt.Printf("Failed to query data: %v", err)
-		return Response{}, fmt.Errorf("failed to query data: %v", err)
-	}
+	var wg sync.WaitGroup
+
+	results := make(chan Route)
+	errors := make(chan error)
+
+	wg.Add(2)
+	go func() {
+		go fetchRoutes(toWorkQuery, true, databaseClient, &wg, results, errors)
+		go fetchRoutes(fromWorkQuery, false, databaseClient, &wg, results, errors)
+		wg.Wait()
+		close(results)
+		close(errors)
+	}()
 
 	var routes []Route
-	for rows.Next() {
-		var route Route
-		if err := rows.Scan(
-			&route.ID,
-			&route.Active,
-			&route.UserID,
-			&route.StartLatitude,
-			&route.StartLongitude,
-			&route.StopLatitude,
-			&route.StopLongitude,
-			&route.Timezone); err != nil {
-			fmt.Printf("Error scanning row: %v", err)
+	for {
+		select {
+		case route, ok := <-results:
+			if !ok {
+				results = nil
+			} else {
+				routes = append(routes, route)
+			}
+		case err, ok := <-errors:
+			if !ok {
+				errors = nil
+			} else {
+				fmt.Printf("Error: %v\n", err)
+			}
 		}
-		route.ToWork = true
-		fmt.Println(route.Timezone)
-		routes = append(routes, route)
-	}
-	if err := rows.Err(); err != nil {
-		fmt.Printf("Error iterating rows: %v", err)
-		return Response{}, fmt.Errorf("error iterating rows: %v", err)
+		if results == nil && errors == nil {
+			break
+		}
 	}
 
 	if len(routes) <= 0 {
@@ -189,13 +234,12 @@ func HandleRequest(ctx context.Context, request Request) (Response, error) {
 		return Response{}, fmt.Errorf("no rows returned: %d", len(routes))
 	}
 
-	var wg sync.WaitGroup
 	resultChan := make(chan string, len(routes))
 	succeeded := 0
 	failed := 0
 
+	wg.Add(len(routes))
 	for _, route := range routes {
-		wg.Add(1)
 		go processRoute(route, svc, resultChan, &wg)
 	}
 
@@ -207,7 +251,6 @@ func HandleRequest(ctx context.Context, request Request) (Response, error) {
 			fmt.Println(result)
 			failed++
 		} else {
-			fmt.Println(result)
 			succeeded++
 		}
 	}

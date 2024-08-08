@@ -2,10 +2,10 @@ SELECT
   routes.id,
   routes.user_id,
   routes.active,
-  routes.start_latitude,
-  routes.start_longitude,
-  routes.end_latitude,
-  routes.end_longitude,
+  routes.end_latitude as start_latitude,
+  routes.end_longitude as start_longitude,
+  routes.start_latitude as end_latitude,
+  routes.start_longitude as end_longitude,
   routes.time_zone
 FROM
   routes
@@ -13,8 +13,8 @@ FROM
 WHERE
   active = true
   AND CAST(NOW() AT TIME ZONE routes.time_zone AS TIME) 
-      BETWEEN route_schedule.morning_start_time 
-      AND route_schedule.morning_end_time
+      BETWEEN route_schedule.afternoon_start_time 
+      AND route_schedule.afternoon_end_time
   AND (
     (EXTRACT(DOW FROM NOW() AT TIME ZONE routes.time_zone) = 0 AND route_schedule.sunday = true) OR
     (EXTRACT(DOW FROM NOW() AT TIME ZONE routes.time_zone) = 1 AND route_schedule.monday = true) OR
