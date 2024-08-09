@@ -8,6 +8,8 @@ resource "aws_lambda_function" "this" {
   environment {
     variables = var.environment_variables
   }
+
+  timeout = var.lambda_timeout
 }
 
 resource "aws_lambda_permission" "this" {

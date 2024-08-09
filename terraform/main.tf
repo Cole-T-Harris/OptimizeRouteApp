@@ -13,6 +13,7 @@ module "optimize_route_function" {
     SUPABASE_URL: var.SUPABASE_URL
     SUPABASE_KEY: var.SUPABASE_KEY  
   }
+  lambda_timeout    = 15
 }
 
 module "commutes_queue_function" {
@@ -29,4 +30,5 @@ module "commutes_queue_function" {
     SUPABASE_DATABASE: var.SUPABASE_DATABASE
     OPTIMIZE_ROUTE_FUNCTION: module.optimize_route_function.function_arn
   }
+    lambda_timeout    = 180
 }
