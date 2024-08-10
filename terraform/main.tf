@@ -32,3 +32,12 @@ module "commutes_queue_function" {
   }
   lambda_timeout = 180
 }
+
+module "cloudwatch_event" {
+  source                = "./modules/cloudwatch_cron"
+  rule_name             = "every_minute_rule_commutes_queue"
+  rule_description      = "Trigger CommutesQueue Lambda function every minute"
+  schedule_expression   = "rate(1 minute)"
+  lambda_function_arn   = module.commutes_queue_function.function_arn
+  lambda_function_name  = module.commutes_queue_function.function_name
+}
