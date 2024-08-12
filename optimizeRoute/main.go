@@ -86,6 +86,7 @@ type QueryRecord struct {
 
 var supabaseURL = os.Getenv("SUPABASE_URL")
 var supabaseKey = os.Getenv("SUPABASE_KEY")
+var googleMapsAPIKEY = os.Getenv("GOOGLE_API_KEY")
 
 func HandleRequest(ctx context.Context, request Request) (Response, error) {
 	if request.UserID == nil {
@@ -158,7 +159,7 @@ func HandleRequest(ctx context.Context, request Request) (Response, error) {
 		return Response{}, fmt.Errorf("error marshaling JSON: %v", err)
 	}
 
-	apiKey := os.Getenv("GOOGLE_API_KEY")
+	apiKey := googleMapsAPIKEY
 	url := "https://routes.googleapis.com/directions/v2:computeRoutes"
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {

@@ -1,5 +1,5 @@
 # Define variables
-FUNCTIONS_DIRS := optimizeRoute commutesQueue
+FUNCTIONS_DIRS := optimizeRoute commutesQueue addUserRoute
 BUILD_DIR := dist
 BINARY_NAMES := $(FUNCTIONS_DIRS)
 ZIP_NAMES := $(addprefix $(BUILD_DIR)/, $(addsuffix .zip, $(BINARY_NAMES)))
