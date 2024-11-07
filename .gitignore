@@ -27,3 +27,16 @@ testRequests/
 terraform.tfstate.backup
 .terraform
 terraform.tfstate
+
+#Evidence UI
+dashboards/.evidence/template
+dashboards/.svelte-kit
+dashboards/build
+dashboards/node_modules
+dashboards/.DS_Store
+dashboards/static/data
+*.options.yaml
+dashboards/.vscode/settings.json
+dashboards/.env
+dashboards/.evidence/meta
+.vscode/settings.json

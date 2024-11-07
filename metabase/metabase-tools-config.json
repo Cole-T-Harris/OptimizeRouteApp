@@ -1,8 +1,0 @@
-{
-    "MetabaseApi": {
-      "Url": "http://host.docker.internal:3000/",
-      "Username": "YOUR_USERNAME",
-      "Password":  "YOUR_PASSWORD"
-    }
-}
-  

@@ -29,7 +29,7 @@ variable "SUPABASE_HOST" {
   type        = string
 }
 variable "SUPABASE_PORT" {
-  description = "Supabase Host Name"
+  description = "Supabase Port"
   sensitive   = true
   type        = string
 }

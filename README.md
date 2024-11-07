@@ -66,3 +66,14 @@ Resources:
           SUPABASE_KEY: "YOUR_DATABASE_SECRET"
           OPTIMIZE_ROUTE_FUNCTION: "YOUR_OPTIMIZE_ROUTE_FUNCTION_ARN"
 ```
+
+### Deploying to AWS
+
+Refer to the files located in ./terraform, specifically ./terraform/variables.tf for the variables required to run  ```terraform apply```
+
+Note: You will need a GCP API key for the "https://routes.googleapis.com/directions/v2:computeRoutes" API endpoint.
+
+The Cloudwatch CRON job will immediately start called the commutesQueue Lambda function. This lambda function requires a valid and active route to be in the routes table in the postgres table.
+
+### Viewing Results via Evidence.dev
+Open the project in the dashboards subdirectory and make sure to run the evidence.dev code via vscode or whatever way you prefer. Refer to: https://docs.evidence.dev/install-evidence/ for more information.
