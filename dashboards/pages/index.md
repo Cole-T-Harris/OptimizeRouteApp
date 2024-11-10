@@ -2,6 +2,8 @@
 title: Commutes Optimizer Dashboard
 ---
 
+<LastRefreshed prefix="Data last updated"/>
+
 ```sql users
 select name 
 from users 
@@ -376,6 +378,83 @@ SELECT *
 FROM ${generic_commutes}
 WHERE day_of_week = 'Sunday'
 ```
+```sql monday_box_commutes
+WITH average_day_commutes AS (
+  SELECT *, ROW_NUMBER() OVER (ORDER BY query_time ASC) AS row_num
+  FROM ${generic_commutes}
+  WHERE day_of_week = 'Monday'
+)
+SELECT *, avg-avg as confidence_interval
+FROM average_day_commutes
+WHERE row_num % 3 = 1
+ORDER BY query_time ASC
+```
+```sql tuesday_box_commutes
+WITH average_day_commutes AS (
+  SELECT *, ROW_NUMBER() OVER (ORDER BY query_time ASC) AS row_num
+  FROM ${generic_commutes}
+  WHERE day_of_week = 'Tuesday'
+)
+SELECT *
+FROM average_day_commutes
+WHERE row_num % 3 = 1
+ORDER BY query_time ASC
+```
+```sql wednesday_box_commutes
+WITH average_day_commutes AS (
+  SELECT *, ROW_NUMBER() OVER (ORDER BY query_time ASC) AS row_num
+  FROM ${generic_commutes}
+  WHERE day_of_week = 'Wednesday'
+)
+SELECT *
+FROM average_day_commutes
+WHERE row_num % 3 = 1
+ORDER BY query_time ASC
+```
+```sql thursday_box_commutes
+WITH average_day_commutes AS (
+  SELECT *, ROW_NUMBER() OVER (ORDER BY query_time ASC) AS row_num
+  FROM ${generic_commutes}
+  WHERE day_of_week = 'Thursday'
+)
+SELECT *
+FROM average_day_commutes
+WHERE row_num % 3 = 1
+ORDER BY query_time ASC
+```
+```sql friday_box_commutes
+WITH average_day_commutes AS (
+  SELECT *, ROW_NUMBER() OVER (ORDER BY query_time ASC) AS row_num
+  FROM ${generic_commutes}
+  WHERE day_of_week = 'Friday'
+)
+SELECT *
+FROM average_day_commutes
+WHERE row_num % 3 = 1
+ORDER BY query_time ASC
+```
+```sql saturday_box_commutes
+WITH average_day_commutes AS (
+  SELECT *, ROW_NUMBER() OVER (ORDER BY query_time ASC) AS row_num
+  FROM ${generic_commutes}
+  WHERE day_of_week = 'Saturday'
+)
+SELECT *
+FROM average_day_commutes
+WHERE row_num % 3 = 1
+ORDER BY query_time ASC
+```
+```sql sunday_box_commutes
+WITH average_day_commutes AS (
+  SELECT *, ROW_NUMBER() OVER (ORDER BY query_time ASC) AS row_num
+  FROM ${generic_commutes}
+  WHERE day_of_week = 'Sunday'
+)
+SELECT *
+FROM average_day_commutes
+WHERE row_num % 3 = 1
+ORDER BY query_time ASC
+```
 <Tabs>
   <Tab label="Monday">
 
@@ -397,11 +476,9 @@ WHERE day_of_week = 'Sunday'
       y=avg
       yAxisTitle="Commute Time (Minutes)"
       xAxisTitle="Commute Leaving Time"
-      xFmt="H:MM:SS AM/PM"
       sort=false
       yTickMarks=true
       yScale=true
-      downloadableData=false
       emptySet=pass
       emptyMessage="Route does not contain data for this day of week"
     >
@@ -441,6 +518,8 @@ WHERE day_of_week = 'Sunday'
       yScale=true
       downloadableData=false
       labels=true
+      emptySet=pass
+      emptyMessage="Route does not contain data for this day of week"
     >
       {#each best_commute_time as commute}
         {#if commute.day_of_week == "Tuesday"}
@@ -479,6 +558,8 @@ WHERE day_of_week = 'Sunday'
       yScale=true
       downloadableData=false
       labels=true
+      emptySet=pass
+      emptyMessage="Route does not contain data for this day of week"
     >
       {#each best_commute_time as commute}
         {#if commute.day_of_week == "Wednesday"}
@@ -517,6 +598,8 @@ WHERE day_of_week = 'Sunday'
       yScale=true
       downloadableData=false
       labels=true
+      emptySet=pass
+      emptyMessage="Route does not contain data for this day of week"
     >
       {#each best_commute_time as commute}
         {#if commute.day_of_week == "Thursday"}
@@ -555,6 +638,8 @@ WHERE day_of_week = 'Sunday'
       yScale=true
       downloadableData=false
       labels=true
+      emptySet=pass
+      emptyMessage="Route does not contain data for this day of week"
     >
       {#each best_commute_time as commute}
         {#if commute.day_of_week == "Friday"}
@@ -633,6 +718,8 @@ WHERE day_of_week = 'Sunday'
       yScale=true
       downloadableData=false
       labels=true
+      emptySet=pass
+      emptyMessage="Route does not contain data for this day of week"
     >
       {#each best_commute_time as commute}
         {#if commute.day_of_week == "Sunday"}
