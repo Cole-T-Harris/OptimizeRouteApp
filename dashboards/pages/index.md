@@ -229,6 +229,8 @@ average_commutes AS (
   SELECT
     formatted_time AS query_time,
     AVG(duration) / 60 AS avg_duration,
+    MAX(duration) / 60 AS worst_duration,
+    MIN(duration) / 60 AS best_duration,
     day_of_week,
     Users__name,
     route,
@@ -256,6 +258,8 @@ first_derivative AS (
     Routes__active,
     to_work,
     avg_duration,
+    worst_duration,
+    best_duration,
     LAG(avg_duration) OVER (PARTITION BY day_of_week ORDER BY query_time) AS previous_avg_duration,
     avg_duration - LAG(avg_duration) OVER (PARTITION BY day_of_week ORDER BY query_time) AS duration_change
   FROM average_commutes
@@ -269,6 +273,8 @@ second_derivative AS (
     Routes__active,
     to_work,
     avg_duration,
+    worst_duration,
+    best_duration,
     duration_change,
     LAG(duration_change) OVER (PARTITION BY day_of_week ORDER BY query_time) AS previous_duration_change,
     duration_change - LAG(duration_change) OVER (PARTITION BY day_of_week ORDER BY query_time) AS rate_of_change
@@ -343,394 +349,64 @@ GROUP BY
 ORDER BY
   formatted_time ASC
 ```
-```sql monday_commutes
-SELECT * 
-FROM ${generic_commutes}
-WHERE day_of_week = 'Monday'
+
+```sql days_of_week_query
+SELECT distinct day_of_week
+FROM commutes
+LEFT JOIN users AS Users ON commutes.user_id = Users.id
+LEFT JOIN routes AS Routes ON commutes.route = Routes.id
+WHERE
+  Users.name = '${inputs.user_dropdown.value}'
+  AND to_work = '${inputs.to_work}'
+  AND routes.id = '${inputs.route_dropdown.value}'
 ```
-```sql tuesday_commutes
-SELECT * 
-FROM ${generic_commutes}
-WHERE day_of_week = 'Tuesday'
-```
-```sql wednesday_commutes
-SELECT * 
-FROM ${generic_commutes}
-WHERE day_of_week = 'Wednesday'
-```
-```sql thursday_commutes
-SELECT * 
-FROM ${generic_commutes}
-WHERE day_of_week = 'Thursday'
-```
-```sql friday_commutes
-SELECT * 
-FROM ${generic_commutes}
-WHERE day_of_week = 'Friday'
-```
-```sql saturday_commutes
-SELECT * 
-FROM ${generic_commutes}
-WHERE day_of_week = 'Saturday'
-```
-```sql sunday_commutes
-SELECT * 
-FROM ${generic_commutes}
-WHERE day_of_week = 'Sunday'
-```
-```sql monday_box_commutes
-WITH average_day_commutes AS (
-  SELECT *, ROW_NUMBER() OVER (ORDER BY query_time ASC) AS row_num
-  FROM ${generic_commutes}
-  WHERE day_of_week = 'Monday'
-)
-SELECT *, avg-avg as confidence_interval
-FROM average_day_commutes
-WHERE row_num % 3 = 1
-ORDER BY query_time ASC
-```
-```sql tuesday_box_commutes
-WITH average_day_commutes AS (
-  SELECT *, ROW_NUMBER() OVER (ORDER BY query_time ASC) AS row_num
-  FROM ${generic_commutes}
-  WHERE day_of_week = 'Tuesday'
-)
-SELECT *
-FROM average_day_commutes
-WHERE row_num % 3 = 1
-ORDER BY query_time ASC
-```
-```sql wednesday_box_commutes
-WITH average_day_commutes AS (
-  SELECT *, ROW_NUMBER() OVER (ORDER BY query_time ASC) AS row_num
-  FROM ${generic_commutes}
-  WHERE day_of_week = 'Wednesday'
-)
-SELECT *
-FROM average_day_commutes
-WHERE row_num % 3 = 1
-ORDER BY query_time ASC
-```
-```sql thursday_box_commutes
-WITH average_day_commutes AS (
-  SELECT *, ROW_NUMBER() OVER (ORDER BY query_time ASC) AS row_num
-  FROM ${generic_commutes}
-  WHERE day_of_week = 'Thursday'
-)
-SELECT *
-FROM average_day_commutes
-WHERE row_num % 3 = 1
-ORDER BY query_time ASC
-```
-```sql friday_box_commutes
-WITH average_day_commutes AS (
-  SELECT *, ROW_NUMBER() OVER (ORDER BY query_time ASC) AS row_num
-  FROM ${generic_commutes}
-  WHERE day_of_week = 'Friday'
-)
-SELECT *
-FROM average_day_commutes
-WHERE row_num % 3 = 1
-ORDER BY query_time ASC
-```
-```sql saturday_box_commutes
-WITH average_day_commutes AS (
-  SELECT *, ROW_NUMBER() OVER (ORDER BY query_time ASC) AS row_num
-  FROM ${generic_commutes}
-  WHERE day_of_week = 'Saturday'
-)
-SELECT *
-FROM average_day_commutes
-WHERE row_num % 3 = 1
-ORDER BY query_time ASC
-```
-```sql sunday_box_commutes
-WITH average_day_commutes AS (
-  SELECT *, ROW_NUMBER() OVER (ORDER BY query_time ASC) AS row_num
-  FROM ${generic_commutes}
-  WHERE day_of_week = 'Sunday'
-)
-SELECT *
-FROM average_day_commutes
-WHERE row_num % 3 = 1
-ORDER BY query_time ASC
-```
+
 <Tabs>
-  <Tab label="Monday">
+  {#each days_of_week_query as days}
+    <Tab label={days.day_of_week}>
 
-    
-    **Top 3 Optimal Departure Times**
 
-    {#each best_commute_time as monday_commute}
-      {#if monday_commute.day_of_week == "Monday"}
-        <BigValue 
-          data={monday_commute}
-          value=query_time
-          title=""
-        />
-      {/if}
-    {/each }
-    <LineChart
-      data={monday_commutes}
-      x=query_time
-      y=avg
-      yAxisTitle="Commute Time (Minutes)"
-      xAxisTitle="Commute Leaving Time"
-      sort=false
-      yTickMarks=true
-      yScale=true
-      emptySet=pass
-      emptyMessage="Route does not contain data for this day of week"
-    >
-      {#each best_commute_time as commute}
-        {#if commute.day_of_week == "Monday"}
+        **Top 3 Optimal Departure Times**
+
+        <DataTable data={best_commute_time.where(`day_of_week='${days.day_of_week}'`)}>
+          <Column id=query_time title="Leave Time"/>
+          <Column id=avg_duration title="Average Duration"/>
+          <Column id=best_duration title="Best Commute Time"/>
+          <Column id=worst_duration title="Worst Commute Time"/>
+        </DataTable>
+
+        <Chart 
+          data={generic_commutes.where(`day_of_week='${days.day_of_week}'`)}
+          x=query_time
+          yAxisTitle="Commute Time (Minutes)"
+          xAxisTitle="Commute Leaving Time"
+          yScale=true
+          sort=false
+          yTickMarks=true
+          emptySet=pass
+          emptyMessage="Route does not contain data for this day of week"
+        >
+          <Line
+            y=avg
+          />
           <ReferenceLine 
-            x={commute.query_time}
+            data={best_commute_time.where(`day_of_week='${days.day_of_week}'`)}
+            x=query_time
             labelPosition=aboveStart
           />
-        {/if}
-      {/each }
-    </LineChart>
-  </Tab>
-  <Tab label="Tuesday">
-
-    
-    **Top 3 Optimal Departure Times**
-
-    {#each best_commute_time as tuesday_commute}
-      {#if tuesday_commute.day_of_week == "Tuesday"}
-        <BigValue 
-          data={tuesday_commute}
-          value=query_time
-          title=""
-        />
-      {/if}
-    {/each }
-    <LineChart
-      data={tuesday_commutes}
-      x=query_time
-      y=avg
-      yAxisTitle="Commute Time (Minutes)"
-      xAxisTitle="Commute Leaving Time"
-      xFmt="H:MM:SS AM/PM"
-      sort=false
-      yTickMarks=true
-      yScale=true
-      downloadableData=false
-      labels=true
-      emptySet=pass
-      emptyMessage="Route does not contain data for this day of week"
-    >
-      {#each best_commute_time as commute}
-        {#if commute.day_of_week == "Tuesday"}
-          <ReferenceLine 
-            x={commute.query_time}
-            labelPosition=aboveStart
+          <Area
+            y=upper_bound
+            name="Upper Confidence Interval"
           />
-        {/if}
-      {/each }
-    </LineChart>
-  </Tab>
-  <Tab label="Wednesday">
-
-    
-    **Top 3 Optimal Departure Times**
-
-    {#each best_commute_time as wednesday_commute}
-      {#if wednesday_commute.day_of_week == "Wednesday"}
-        <BigValue 
-          data={wednesday_commute}
-          value=query_time
-          title=""
-        />
-      {/if}
-    {/each }
-
-    <LineChart
-      data={wednesday_commutes}
-      x=query_time
-      y=avg
-      yAxisTitle="Commute Time (Minutes)"
-      xAxisTitle="Commute Leaving Time"
-      xFmt="H:MM:SS AM/PM"
-      sort=false
-      yTickMarks=true
-      yScale=true
-      downloadableData=false
-      labels=true
-      emptySet=pass
-      emptyMessage="Route does not contain data for this day of week"
-    >
-      {#each best_commute_time as commute}
-        {#if commute.day_of_week == "Wednesday"}
-          <ReferenceLine 
-            x={commute.query_time}
-            labelPosition=aboveStart
+          <Area
+            y=lower_bound
+            name="Lower Confidence Interval"
+            fillColor=white
+            fillOpacity=1
           />
-        {/if}
-      {/each }
-    </LineChart>
-  </Tab>
-  <Tab label="Thursday">
-
-    
-    **Top 3 Optimal Departure Times**
-
-    {#each best_commute_time as thursday_commute}
-      {#if thursday_commute.day_of_week == "Thursday"}
-        <BigValue 
-          data={thursday_commute}
-          value=query_time
-          title=""
-        />
-      {/if}
-    {/each }
-
-    <LineChart
-      data={thursday_commutes}
-      x=query_time
-      y=avg
-      yAxisTitle="Commute Time (Minutes)"
-      xAxisTitle="Commute Leaving Time"
-      xFmt="H:MM:SS AM/PM"
-      sort=false
-      yTickMarks=true
-      yScale=true
-      downloadableData=false
-      labels=true
-      emptySet=pass
-      emptyMessage="Route does not contain data for this day of week"
-    >
-      {#each best_commute_time as commute}
-        {#if commute.day_of_week == "Thursday"}
-          <ReferenceLine 
-            x={commute.query_time}
-            labelPosition=aboveStart
-          />
-        {/if}
-      {/each }
-    </LineChart>
-  </Tab>
-  <Tab label="Friday">
-
-    
-    **Top 3 Optimal Departure Times**
-
-    {#each best_commute_time as friday_commute}
-      {#if friday_commute.day_of_week == "Friday"}
-        <BigValue 
-          data={friday_commute}
-          value=query_time
-          title=""
-        />
-      {/if}
-    {/each }
-
-    <LineChart
-      data={friday_commutes}
-      x=query_time
-      y=avg
-      yAxisTitle="Commute Time (Minutes)"
-      xAxisTitle="Commute Leaving Time"
-      xFmt="H:MM:SS AM/PM"
-      sort=false
-      yTickMarks=true
-      yScale=true
-      downloadableData=false
-      labels=true
-      emptySet=pass
-      emptyMessage="Route does not contain data for this day of week"
-    >
-      {#each best_commute_time as commute}
-        {#if commute.day_of_week == "Friday"}
-          <ReferenceLine 
-            x={commute.query_time}
-            labelPosition=aboveStart
-          />
-        {/if}
-      {/each }
-    </LineChart>
-  </Tab>
-  <Tab label="Saturday">
-
-    
-    **Top 3 Optimal Departure Times**
-
-    {#each best_commute_time as saturday_commute}
-      {#if saturday_commute.day_of_week == "Saturday"}
-        <BigValue 
-          data={saturday_commute}
-          value=query_time
-          title=""
-        />
-      {/if}
-    {/each }
-
-    <LineChart
-      data={saturday_commutes}
-      x=query_time
-      y=avg
-      yAxisTitle="Commute Time (Minutes)"
-      xAxisTitle="Commute Leaving Time"
-      xFmt="H:MM:SS AM/PM"
-      sort=false
-      yTickMarks=true
-      yScale=true
-      downloadableData=false
-      labels=true
-      emptySet=pass
-      emptyMessage="Route does not contain data for this day of week"
-    >
-      {#each best_commute_time as commute}
-        {#if commute.day_of_week == "Saturday"}
-          <ReferenceLine 
-            x={commute.query_time}
-            labelPosition=aboveStart
-          />
-        {/if}
-      {/each }
-    </LineChart>
-  </Tab>
-  <Tab label="Sunday">
-
-    
-    **Top 3 Optimal Departure Times**
-
-    {#each best_commute_time as sunday_commute}
-      {#if sunday_commute.day_of_week == "Sunday"}
-        <BigValue 
-          data={sunday_commute}
-          value=query_time
-          title=""
-        />
-      {/if}
-    {/each }
-
-    <LineChart
-      data={sunday_commutes}
-      x=query_time
-      y=avg
-      yAxisTitle="Commute Time (Minutes)"
-      xAxisTitle="Commute Leaving Time"
-      xFmt="H:MM:SS AM/PM"
-      sort=false
-      yTickMarks=true
-      yScale=true
-      downloadableData=false
-      labels=true
-      emptySet=pass
-      emptyMessage="Route does not contain data for this day of week"
-    >
-      {#each best_commute_time as commute}
-        {#if commute.day_of_week == "Sunday"}
-          <ReferenceLine 
-            x={commute.query_time}
-            labelPosition=aboveStart
-          />
-        {/if}
-      {/each }
-    </LineChart>
-  </Tab>
+        </Chart>
+    </Tab>
+  {/each}
 </Tabs>
 
 ### Most Common Routes
