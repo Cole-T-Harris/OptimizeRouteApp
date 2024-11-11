@@ -1,5 +1,32 @@
 # OptimizeRouteApp
 
+### Utilizing the Tool
+
+1. Create a project on supabase or wherever you want to create your own postgresql database
+
+2. Install schema onto the database:
+```psql --host=<host> --port=<port> --username=<username> --dbname=<database_name> --file=supabase/database_setup.sql```
+
+The ERD should look like this:
+![ERD](supabase/baseline_screenshots/ERD.png)
+
+The following functions should be in the database
+![Functions](supabase/baseline_screenshots/Functions.png)
+
+The following triggers should be in the database
+![Triggers](supabase/baseline_screenshots/Triggers.png)
+
+
+3. Run ```make all``` to build the binaries for the lambda functions.
+
+4. Create a google API key and setup cloud resources as outlined in section [Deploying to AWS](#deploying-to-aws). In supabase, to find the variables needed refer to your projects settings/database and settings/api. 
+
+5. Add users to the database. Currently this has to be performed manually.
+
+6. You can either manaully enter a users route in the table or run: ```./dist/addUserRoute/bootstrap ```. The SUPABASE_URL, SUPABASE_KEY, and GOOGLE_API_KEY need to be set in your environment variables. These can be found on your supabase projects supabase/api page or from google cloud.
+
+7. Once enough data is stored in your database, make use of the evidence.dev dashboard and connect the dashboard with your postgres database. More information can be found in the [dashboard README](./dashboards/README.md).
+
 ### Building and testing in Local:
 
 Build binary and zip
