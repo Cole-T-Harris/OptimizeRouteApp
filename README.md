@@ -2,7 +2,7 @@
 
 ### Utilizing the Tool
 
-1. Create a project on supabase or wherever you want to create your own postgresql database
+1. Create a project on supabase or wherever you want to create your postgresql database
 
 2. Install schema onto the database:
 ```psql --host=<host> --port=<port> --username=<username> --dbname=<database_name> --file=supabase/database_setup.sql```
@@ -19,11 +19,11 @@ The following triggers should be in the database
 
 3. Run ```make all``` to build the binaries for the lambda functions.
 
-4. Create a google API key and setup cloud resources as outlined in section [Deploying to AWS](#deploying-to-aws). In supabase, to find the variables needed refer to your projects settings/database and settings/api. 
+4. Create a Google API key and set up cloud resources as outlined in section [Deploying to AWS](#deploying-to-aws). In Superbase, refer to your project's settings/database and settings/API to find the needed variables. 
 
-5. Add users to the database. Currently this has to be performed manually.
+5. Add users to the database. Currently, this has to be performed manually.
 
-6. You can either manaully enter a users route in the table or run: ```./dist/addUserRoute/bootstrap ```. The SUPABASE_URL, SUPABASE_KEY, and GOOGLE_API_KEY need to be set in your environment variables. These can be found on your supabase projects supabase/api page or from google cloud.
+6. You can manually enter a user route in the table or run: ```./dist/addUserRoute/bootstrap ```. The SUPABASE_URL, SUPABASE_KEY, and GOOGLE_API_KEY must be set in your environment variables. These can be found on your supabase projects supabase/api page or from Google Cloud.
 
 7. Once enough data is stored in your database, make use of the evidence.dev dashboard and connect the dashboard with your postgres database. More information can be found in the [dashboard README](./dashboards/README.md).
 
@@ -98,9 +98,9 @@ Resources:
 
 Refer to the files located in ./terraform, specifically ./terraform/variables.tf for the variables required to run  ```terraform apply```
 
-Note: You will need a GCP API key for the "https://routes.googleapis.com/directions/v2:computeRoutes" API endpoint.
+Note: You need a GCP API key for the "https://routes.googleapis.com/directions/v2:computeRoutes" API endpoint.
 
-The Cloudwatch CRON job will immediately start called the commutesQueue Lambda function. This lambda function requires a valid and active route to be in the routes table in the postgres table.
+The Cloudwatch CRON job will immediately start calling the commutesQueue Lambda function. This lambda function requires a valid and active route to be in the routes table in the postgres database.
 
 ### Viewing Results via Evidence.dev
-Open the project in the dashboards subdirectory and make sure to run the evidence.dev code via vscode or whatever way you prefer. Refer to: https://docs.evidence.dev/install-evidence/ for more information.
+Open the project in the dashboards subdirectory and run the evidence.dev code via vscode or whatever way you prefer. Refer to: https://docs.evidence.dev/install-evidence/ for more information.
