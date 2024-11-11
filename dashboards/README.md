@@ -1,8 +1,10 @@
 # Project Note
 
-This project utilizes Evidence.dev. The default README is kep below for anyone looking to utilize this project. Additionally are the requirements needed to get up and running:
+This project utilizes Evidence.dev. The default README is kept below for anyone looking to utilize this project.
 
-1. Setup a datasource to your supabase or other postgresql database with your commutes data.As long as your columns are named the same as the orginal database table names, the dashboard should work. 
+### Project Requirements:
+
+1. Set up a datasource to your supabase or other Postgresql database with your commutes data. As long as your tables and columns are named the same as the original database table names, the dashboard should work. 
 
 # Original Evidence Template Project README
 
