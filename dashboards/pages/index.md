@@ -450,7 +450,7 @@ Route Ending Address: **{route_information[0].end_address}**
 
 Route Started Polling: **{route_information[0].start_date}**
 
-{#if !route_information[0].start_date}
+{#if !route_information[0].active}
 Route Ended Polling: **{route_information[0].end_date}**
 
 {/if}
