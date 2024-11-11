@@ -435,3 +435,24 @@ ORDER by count desc
   <Column id=avg_dist title="Average Distance"/>
   <Column id=route_link title="Route URL" contentType=link linkLabel="Details ->"/>
 </DataTable>
+
+### Route Information
+```sql route_information
+select * 
+from routes
+where routes.id='${inputs.route_dropdown.value}'
+```
+Route Status: **{route_information[0].active}**
+
+Route Starting Address: **{route_information[0].start_address}**
+
+Route Ending Address: **{route_information[0].end_address}**
+
+Route Started Polling: **{route_information[0].start_date}**
+
+{#if !route_information[0].start_date}
+Route Ended Polling: **{route_information[0].end_date}**
+
+{/if}
+
+Route Timezone: **{route_information[0].time_zone}**
