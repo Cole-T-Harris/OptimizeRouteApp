@@ -1,5 +1,9 @@
 # OptimizeRouteApp
 
+### Disclaimer
+
+I am not responsible for any cloud costs incurred from utilizing this tool. I have utilized low cost cloud tools such as lambda and free teir supabase but please use this tool at your own risk and be aware of the possible costs that can be incurred from using this tool before setting up.
+
 ### Utilizing the Tool
 
 1. Create a project on supabase or wherever you want to create your postgresql database
